@@ -1,0 +1,110 @@
+---
+title: "Obesity_Analysis"
+output: html_document
+date: "2024-06-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(nnet)
+obesitydf <- read_csv('dataset/Obesity_dataset.csv')
+#https://www.kaggle.com/datasets/fatemehmehrparvar/obesity-levels/data
+```
+
+#Data dictionary
+
+Gender: Feature, Categorical, "Gender"
+
+Age : Feature, Continuous, "Age"
+
+Height: Feature, Continuous
+
+Weight: Feature Continuous
+
+family_history_with_overweight: Feature, Binary, " Has a family member suffered or suffers from overweight? "
+
+FAVC : Feature, Binary, " Do you eat high caloric food frequently? "
+
+FCVC : Feature, Integer, " Do you usually eat vegetables in your meals? "
+
+NCP : Feature, Continuous, " How many main meals do you have daily? "
+
+CAEC : Feature, Categorical, " Do you eat any food between meals? "
+
+SMOKE : Feature, Binary, " Do you smoke? "
+
+CH2O: Feature, Continuous, " How much water do you drink daily? "
+
+SCC: Feature, Binary, " Do you monitor the calories you eat daily? "
+
+FAF: Feature, Continuous, " How often do you have physical activity? "
+
+TUE : Feature, Integer, " How much time do you use technological devices such as cell phone, videogames, television, computer and others? "
+
+CALC : Feature, Categorical, " How often do you drink alcohol? "
+
+MTRANS : Feature, Categorical, " Which transportation do you usually use? "
+
+NObeyesdad : Target, Categorical, "Obesity level"
+
+
+
+```{r}
+head(obesitydf)
+```
+
+```{r}
+dim(obesitydf)
+dim(complete(obesitydf)) #no implicitly missing values
+dim(na.omit(obesitydf)) #no explicitly missing values/NAs
+#clean data
+```
+
+```{r}
+unique(obesitydf$NObeyesdad) #all possible values for the classification of obesity
+```
+
+```{r}
+summary(obesitydf)
+```
+
+
+# Predict Obesity Level
+
+## Multinomial Logistic Regression
+
+```{r}
+obesitydf$NObeyesdad <- factor(obesitydf$NObeyesdad)
+levels(obesitydf$NObeyesdad)
+
+obesitydf$NObeyesdad <- relevel(obesitydf$NObeyesdad, ref="Normal_Weight")#use "Normal_Weight" as reference
+```
+
+```{r}
+none <- multinom(NObeyesdad~1, data=obesitydf)
+full <- multinom(NObeyesdad~., data=obesitydf)
+step <- MASS::stepAIC(full, direction="both", trace=F)
+summary(step)
+
+summary(step)$coef
+```
+
+Reference level is "Normal_Weight" which means that every row (Insufficient_Weight...etc) is comparing to normal weight. For example, in the "Height" column in the coefficient table in the "Insufficient_Weight" row, the coefficient is 244 which indicates that for each increase in "Height", you are more likely a "Insufficient_Weight" as opposed to a "Normal_Weight." So in general, positive values in the coefficient table means that increase in a certain value increases the chance that you are the descriptor of that row and vice versa with negative values. 
+
+
+## Boruta
+
+```{r}
+
+```
+
+
+## SVM
+
+
+##
+
+
+
+
