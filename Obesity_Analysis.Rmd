@@ -8,8 +8,14 @@ date: "2024-06-10"
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(nnet)
+library(broom)
+library(caret)
+
 obesitydf <- read_csv('dataset/Obesity_dataset.csv')
+set.seed(2418)
 #https://www.kaggle.com/datasets/fatemehmehrparvar/obesity-levels/data
+#https://datatab.net/tutorial/cohens-kappa
+#https://www.datacamp.com/tutorial/tutorial-lasso-ridge-regression 
 ```
 
 #Data dictionary
@@ -54,7 +60,7 @@ NObeyesdad : Target, Categorical, "Obesity level"
 head(obesitydf)
 ```
 
-```{r}
+```{r, include=F}
 dim(obesitydf)
 dim(complete(obesitydf)) #no implicitly missing values
 dim(na.omit(obesitydf)) #no explicitly missing values/NAs
@@ -80,30 +86,83 @@ levels(obesitydf$NObeyesdad)
 
 obesitydf$NObeyesdad <- relevel(obesitydf$NObeyesdad, ref="Normal_Weight")#use "Normal_Weight" as reference
 ```
+### Feature Selection Using Stepwise Regression (Akaike Information Criterion)
 
-```{r}
+```{r, results=FALSE}
 none <- multinom(NObeyesdad~1, data=obesitydf)
 full <- multinom(NObeyesdad~., data=obesitydf)
 step <- MASS::stepAIC(full, direction="both", trace=F)
-summary(step)
 
-summary(step)$coef
+# multinom(formula = NObeyesdad ~ Gender + Height + Weight + CALC + 
+#     FAVC + SCC + CH2O + family_history_with_overweight + FAF + 
+#     TUE, data = obesitydf)
 ```
 
-Reference level is "Normal_Weight" which means that every row (Insufficient_Weight...etc) is comparing to normal weight. For example, in the "Height" column in the coefficient table in the "Insufficient_Weight" row, the coefficient is 244 which indicates that for each increase in "Height", you are more likely a "Insufficient_Weight" as opposed to a "Normal_Weight." So in general, positive values in the coefficient table means that increase in a certain value increases the chance that you are the descriptor of that row and vice versa with negative values. 
+Selected Model: 
 
+multinom(formula = NObeyesdad ~ Gender + Height + Weight + CALC + 
+    FAVC + SCC + CH2O + family_history_with_overweight + FAF + 
+    TUE, data = obesitydf)
 
-## Boruta
 
 ```{r}
-
+summary(step)
 ```
 
+
+
+Reference level is "Normal_Weight" which means that every row (Insufficient_Weight...etc) is comparing to normal weight. For example, in the "Height" column in the coefficient table in the "Insufficient_Weight" row, the coefficient is 244 which indicates that for each increase in "Height", you are more likely a "Insufficient_Weight" as opposed to a "Normal_Weight." So in general, positive values in the coefficient table means that increase in a certain value increases the chance that you are the descriptor of that row and vice versa with negative values. The coefficients represent the change in the log-odds of the outcome for a one-unit increase in the predictor variable. 
+
+
+```{r}
+head(prob <- fitted(step))
+```
+
+```{r, warning=F, echo=F}
+#effect size of predictors
+model_coeffs <- tidy(step) %>%
+  mutate(odds_ratio=exp(estimate))
+
+
+ggplot(model_coeffs, aes(x = term, y = odds_ratio, color = as.factor(y.level))) +
+  geom_point(alpha=0.5) +
+  geom_hline(yintercept = 1, linetype="dashed", color="blue") +
+  coord_flip() +
+  scale_y_log10() +
+  labs(title = "Odds Ratios of Predictors (Log Scale)", x = "Predictor Variables", y = "Odds Ratio", color="Classification", 
+       caption="The dashed line indicates where the predictors have no effects") +
+  theme_minimal()
+  
+```
+
+The points left of the blue dashed line indicate that the "increase" in that specific category will decrease the probability that the subject is classified as the classification indicated by the color. For example, in the "Height" row, the red dot is on the right of the blue line, which suggests that an increase in height will increase the possibility of someone being classified as "Insufficient_Weight." We see a trend for the points on the left of the blue line that an increase in height will decrease the probability of someone being classified as one of the more big-boned categories. 
+
+
+
+### Cross Validation
+
+```{r, results=F}
+tc <- trainControl(method="cv", number =5)
+
+model <- train(NObeyesdad ~ Gender + Height + Weight + CALC +
+    FAVC + SCC + CH2O + family_history_with_overweight + FAF +
+    TUE, data = obesitydf, method="multinom", trControl=tc)
+```
+
+```{r}
+print(model)
+```
+
+
+
+With the regularization parameter of 1e-04, the accuracy and kappa is maximized. Accuracy is the proportion of correctly classified instances out of the total instances. Cohen's Kappa measures the agreement between predicted and true class labels while accounting for the possibility of agreement occurring by chance. 
+
+$$\kappa=\frac{p_o-p_e}{1-p_e}$$ where $p_o$ is accuracy and $p_e$ is the probability that the agreement between the predicted and true class labels are purely by chance. 
 
 ## SVM
 
 
-##
+
 
 
 
